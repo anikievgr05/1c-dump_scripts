@@ -35,7 +35,8 @@ $path = $config["folder_path"]
 $folder_path = "$disk_name`:\$path"
 $bot_token = $config["bot_token"]
 $chat_id = $config["chat_id"]
-
+$username = $config["username"]
+$password = $config["password"]
 
 
 # 
@@ -132,7 +133,7 @@ function unloading_the_information_base {
     $output_path = "$folder_path\$date.dt"
 
     # формируем команду для выгрузки базы
-    $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name"
+    $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name /N $username /P $password"
 
     # получаем размер последнего файла
     $latest_file = Get-ChildItem -Path $folder_path -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
