@@ -39,6 +39,49 @@ $username = $config["username"]
 $password = $config["password"]
 
 
+
+# 
+# функция для закрытия всех сессий
+#
+# @return - void
+function terminate_all_sessions {
+
+    # Создаем COM-объект подключения к 1С
+    $connector = New-Object -ComObject "V83.COMConnector"
+    
+    try {
+        # Подключаемся к агенту сервера 1С
+        $AgentConnection = $connector.ConnectAgent($server_address)
+        
+        # Получаем первый кластер (если их несколько, нужно адаптировать код)
+        $Cluster = $AgentConnection.GetClusters()[0]
+        
+        # Авторизация (пустые логин и пароль, если нет авторизации)
+        $AgentConnection.Authenticate($Cluster, "", "")
+        
+        # Получаем список всех информационных баз
+        $bases = $AgentConnection.GetInfoBases($Cluster)
+        
+        foreach ($base in $bases) {
+            # Получаем список всех сессий для каждой базы
+            $sessions = $AgentConnection.GetSessions($Cluster) | Where-Object {
+                $_.Infobase.Name -eq $base.Name -and
+                $_.AppId -ne "SrvrConsole" -and
+                $_.AppId -ne "BackgroundJob"
+            }
+            
+            foreach ($session in $sessions) {              
+                # Завершаем сессию
+                $AgentConnection.TerminateSession($Cluster, $session)
+            }
+        }
+    } catch {
+        $errorMessage = $_.Exception.Message
+        send_msg -msg "Ошибка при завершении сессий: $errorMessage"
+        throw
+    }
+}
+
 # 
 # функция отправляет сообщение в tg got
 #
@@ -131,6 +174,9 @@ function unloading_the_information_base {
 
     # Путь для сохранения файла .dt
     $output_path = "$folder_path\$date.dt"
+
+    # Закрываем все сессии перед выгрузкой
+    terminate_all_sessions
 
     # формируем команду для выгрузки базы
     $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name /N $username /P $password"
