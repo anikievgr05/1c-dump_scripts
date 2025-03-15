@@ -1,0 +1,14 @@
+# сервер
+server_name=localhost
+# имя информационной базы
+base_name=base
+# путь до 1cv8.exe
+one_c_executable=C:\Program Files\1cv8\<версия>\bin\1cv8.exe
+# имя диска на который будут загружаться дампы
+disk_name=D
+# путь до папки !!! Слешь в конце не ставить !!!
+folder_path=Backups
+# Токен бота
+bot_token=********************************
+# ID чата с ботом
+chat_id=**********************************
