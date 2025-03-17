@@ -8,7 +8,7 @@
         "type": "tabs",
         "children": [
           {
-            "id": "cdd65d58ae5ca161",
+            "id": "06dbcb8561dcb08e",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -40,7 +40,8 @@
             "state": {
               "type": "file-explorer",
               "state": {
-                "sortOrder": "alphabetical"
+                "sortOrder": "alphabetical",
+                "autoReveal": false
               },
               "icon": "lucide-folder-closed",
               "title": "Files"
@@ -162,7 +163,7 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "cdd65d58ae5ca161",
+  "active": "06dbcb8561dcb08e",
   "lastOpenFiles": [
     "files/Pasted image 20250315212740.png"
   ]

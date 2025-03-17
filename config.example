@@ -1,7 +1,5 @@
 # сервер
 server_name=localhost
-# имя информационной базы
-base_name=base
 # путь до 1cv8.exe
 one_c_executable=C:\Program Files\1cv8\<версия>\bin\1cv8.exe
 # имя диска на который будут загружаться дампы
@@ -16,3 +14,5 @@ chat_id=**********************************
 username=user
 # Пароль пользователя
 password=*****
+# базы (указывать через запятую (base1,base2,base3))
+bases=

@@ -28,7 +28,7 @@ $config = Load-Config -configFilePath $configFilePath
 
 # Инициализация переменных из конфигурации
 $server_name = $config["server_name"]
-$base_name = $config["base_name"]
+$base_name = ''
 $one_c_executable = $config["one_c_executable"]
 $disk_name = $config["disk_name"]
 $path = $config["folder_path"]
@@ -37,7 +37,7 @@ $bot_token = $config["bot_token"]
 $chat_id = $config["chat_id"]
 $username = $config["username"]
 $password = $config["password"]
-
+$bases = $config["bases"].Split(",")
 
 
 # 
@@ -153,12 +153,12 @@ function report {
     # формируем отчет
     $msg =  @" 
 ===$date===
-Отчет
+Отчет по #$base_name
 Дата начала: $start
 Дата окончания: $end
 Общее количество затраченного времени в секундах: $time_seconds
 Размер файла dt: $file_size_in_mb MB
-Разница $difference_msg MB
+Разница между $difference_msg MB
 Свободного места осталось: $free_space_in_gb GB
 "@
     send_msg -msg $msg
@@ -171,9 +171,13 @@ function report {
 function unloading_the_information_base {
     #формируем путь к бекапу
     $date = Get-Date -Format "MM_dd_yyyy___HH_mm_ss"
-
+    $full_folder_path = "$folder_path\$base_name"
+    if (-not (Test-Path -Path $full_folder_path)) {
+        New-Item -ItemType Directory -Path $full_folder_path | Out-Null
+        send_msg -msg "Создана новая папка: $full_folder_path"
+    }
     # Путь для сохранения файла .dt
-    $output_path = "$folder_path\$date.dt"
+    $output_path = "$full_folder_path\$date.dt"
 
     # Закрываем все сессии перед выгрузкой
     terminate_all_sessions
@@ -182,7 +186,7 @@ function unloading_the_information_base {
     $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name /N $username /P $password"
 
     # получаем размер последнего файла
-    $latest_file = Get-ChildItem -Path $folder_path -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $latest_file = Get-ChildItem -Path $full_folder_path -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     $latest_file_size = 0
     # проверяем, найден ли файл
     if ($latest_file) {
@@ -191,7 +195,7 @@ function unloading_the_information_base {
     
 
     # запуск 1С для выполнения выгрузки
-    send_msg -msg "Начинаю выгрузку базы 1С..."
+    send_msg -msg "Начинаю выгрузку базы 1С $base_name"
     $start_time = Get-Date
     try {
         Start-Process -FilePath $one_c_executable -ArgumentList $command -Wait -ErrorAction Stop
@@ -219,4 +223,8 @@ function unloading_the_information_base {
         send_msg -msg "Ошибка при выгрузке базы 1С."
     }
 }
-unloading_the_information_base
+# перебираем базы
+foreach ($base in $bases) {
+    $base_name = $base
+    unloading_the_information_base
+}
