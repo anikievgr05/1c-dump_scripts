@@ -35,8 +35,6 @@ $path = $config["folder_path"]
 $folder_path = "$disk_name`:\$path"
 $bot_token = $config["bot_token"]
 $chat_id = $config["chat_id"]
-$username = $config["username"]
-$password = $config["password"]
 $bases = $config["bases"].Split(",")
 
 
@@ -77,7 +75,7 @@ function terminate_all_sessions {
         }
     } catch {
         $errorMessage = $_.Exception.Message
-        send_msg -msg "Ошибка при завершении сессий: $errorMessage"
+        send_msg -msg "❌ Ошибка при завершении сессий: $errorMessage"
         throw
     }
 }
@@ -151,9 +149,9 @@ function report {
     $free_space = $disk.Free
     $free_space_in_gb = [math]::Round($free_space / 1GB, 2)
     # формируем отчет
-    $msg =  @" 
+    $msg =  @"
 ===$date===
-Отчет по #$base_name
+📢Отчет по #$base_name
 Дата начала: $start
 Дата окончания: $end
 Общее количество затраченного времени в секундах: $time_seconds
@@ -174,7 +172,6 @@ function unloading_the_information_base {
     $full_folder_path = "$folder_path\$base_name"
     if (-not (Test-Path -Path $full_folder_path)) {
         New-Item -ItemType Directory -Path $full_folder_path | Out-Null
-        send_msg -msg "Создана новая папка: $full_folder_path"
     }
     # Путь для сохранения файла .dt
     $output_path = "$full_folder_path\$date.dt"
@@ -183,7 +180,11 @@ function unloading_the_information_base {
     terminate_all_sessions
 
     # формируем команду для выгрузки базы
-    $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name /N $username /P $password"
+    if ($username -and $password) {
+        $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name /N $username /P $password"
+    } else {
+        $command = "CONFIG /DumpIB $output_path /S $server_name\$base_name"
+    }
 
     # получаем размер последнего файла
     $latest_file = Get-ChildItem -Path $full_folder_path -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -195,12 +196,12 @@ function unloading_the_information_base {
     
 
     # запуск 1С для выполнения выгрузки
-    send_msg -msg "Начинаю выгрузку базы 1С $base_name"
+    send_msg -msg "🟠 Начинаю выгрузку базы 1С $base_name"
     $start_time = Get-Date
     try {
         Start-Process -FilePath $one_c_executable -ArgumentList $command -Wait -ErrorAction Stop
     } catch {
-        send_msg -msg "Ошибка при выполнении выгрузки базы 1С."
+        send_msg -msg "❌ Ошибка при выполнении выгрузки базы 1С."
         return
     }
     $end_time = Get-Date
@@ -208,7 +209,7 @@ function unloading_the_information_base {
 
     # проверка результата
     if (Test-Path $output_path) {
-        send_msg -msg "Выгрузка успешно завершена. Файл сохранен по пути: $output_path"
+        send_msg -msg "🟢 Выгрузка успешно завершена. Файл сохранен по пути: $output_path"
         # получаем размер нового файла
         $file = Get-Item $output_path
         $file_size = $file.Length
@@ -220,11 +221,26 @@ function unloading_the_information_base {
                -latest_file_size  $latest_file_size
 
     } else {
-        send_msg -msg "Ошибка при выгрузке базы 1С."
+        send_msg -msg "❌ Ошибка при выгрузке базы 1С."
     }
 }
 # перебираем базы
 foreach ($base in $bases) {
-    $base_name = $base
-    unloading_the_information_base
+    # Путь к файлу конфигурации
+    $configFilePath = ".\settings\$base.conf"
+    if (Test-Path $configFilePath) {
+        # Загружаем конфигурацию
+        $config = Load-Config -configFilePath $configFilePath
+        $username = ""
+        $password = ""
+        if ($config['username'] -and $config['password']) {
+            $username = $config['username']
+            $password = $config['password']
+        }
+        $base_name = $base
+        unloading_the_information_base
+    } else {
+        send_msg -msg "🔴 Конфигурации для ИБ #$base не существует "
+        continue
+    }
 }
