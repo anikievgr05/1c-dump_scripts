@@ -57,21 +57,16 @@ function terminate_all_sessions {
         # Авторизация (пустые логин и пароль, если нет авторизации)
         $AgentConnection.Authenticate($Cluster, "", "")
         
-        # Получаем список всех информационных баз
-        $bases = $AgentConnection.GetInfoBases($Cluster)
+        # Получаем список всех сессий для каждой базы
+        $sessions = $AgentConnection.GetSessions($Cluster) | Where-Object {
+            $_.Infobase.Name -eq $base_name -and
+            $_.AppId -ne "SrvrConsole" -and
+            $_.AppId -ne "BackgroundJob"
+        }
         
-        foreach ($base in $bases) {
-            # Получаем список всех сессий для каждой базы
-            $sessions = $AgentConnection.GetSessions($Cluster) | Where-Object {
-                $_.Infobase.Name -eq $base.Name -and
-                $_.AppId -ne "SrvrConsole" -and
-                $_.AppId -ne "BackgroundJob"
-            }
-            
-            foreach ($session in $sessions) {              
-                # Завершаем сессию
-                $AgentConnection.TerminateSession($Cluster, $session)
-            }
+        foreach ($session in $sessions) {              
+            # Завершаем сессию
+            $AgentConnection.TerminateSession($Cluster, $session)
         }
     } catch {
         $errorMessage = $_.Exception.Message
@@ -240,6 +235,7 @@ foreach ($base in $bases) {
         $base_name = $base
         unloading_the_information_base
     } else {
+        send_msg -msg "234"
         send_msg -msg "🔴 Конфигурации для ИБ #$base не существует "
         continue
     }
