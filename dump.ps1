@@ -235,8 +235,7 @@ foreach ($base in $bases) {
         $base_name = $base
         unloading_the_information_base
     } else {
-        send_msg -msg "234"
-        send_msg -msg "🔴 Конфигурации для ИБ #$base не существует "
+        send_msg -msg "❌ Настроек для ИБ $base не существует"
         continue
     }
 }
