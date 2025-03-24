@@ -55,7 +55,7 @@ function terminate_all_sessions {
         $Cluster = $AgentConnection.GetClusters()[0]
         
         # Авторизация (пустые логин и пароль, если нет авторизации)
-        $AgentConnection.Authenticate($Cluster, "", "")
+        $AgentConnection.Authenticate($Cluster, $username, $password)
         
         # Получаем список всех сессий для каждой базы
         $sessions = $AgentConnection.GetSessions($Cluster) | Where-Object {
