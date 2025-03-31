@@ -2,6 +2,8 @@
 server_name=localhost
 # путь до 1cv8.exe
 one_c_executable=C:\Program Files\1cv8\<версия>\bin\1cv8.exe
+# кол. времени в секундах после остановки фоновых задач
+work_stoppage=30
 # имя диска на который будут загружаться дампы
 disk_name=D
 # путь до папки !!! Слешь в конце не ставить !!!

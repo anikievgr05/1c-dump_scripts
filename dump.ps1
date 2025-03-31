@@ -35,8 +35,129 @@ $path = $config["folder_path"]
 $folder_path = "$disk_name`:\$path"
 $bot_token = $config["bot_token"]
 $chat_id = $config["chat_id"]
+$work_stoppage = $config["work_stoppage"]
 $bases = $config["bases"].Split(",")
+$job_disable = 0;
 
+# 
+# Функция выключает регламентные задания для информационной базы
+#
+# @return - void
+function disable_scheduled_jobs {
+
+    # Создаем COM-объект подключения к 1С
+    $connector = New-Object -ComObject "V83.COMConnector"
+    
+    try {
+        # Подключаемся к агенту сервера 1С
+        $AgentConnection = $connector.ConnectAgent($server_name)
+        
+        # Получаем первый кластер (если их несколько, нужно адаптировать код)
+        $Cluster = $AgentConnection.GetClusters()[0]
+        
+        # Авторизация (пустые логин и пароль, если нет авторизации)
+        $AgentConnection.Authenticate($Cluster, "", "")
+        
+        # Получаем рабочий процесс
+        $WorkingProcess = $AgentConnection.GetWorkingProcesses($Cluster)[0]
+        $ConnectionString = "{0}:{1}" -f $WorkingProcess.HostName, $WorkingProcess.MainPort
+
+        # Подключаемся к рабочему процессу
+        $WorkingProcessSession = $connector.ConnectWorkingProcess($ConnectionString)
+        $WorkingProcessSession.AddAuthentication($username, $password) # Пустые логин и пароль, если нет авторизации
+
+        # Получаем список информационных баз
+        $InfoBases = $WorkingProcessSession.GetInfoBases() | Where-Object { $_.Name -eq $base_name }
+
+        if ($InfoBases.Count -eq 0) {
+            send_msg -msg "❌ База данных '$base_name' не найдена."
+            return
+        }
+
+        # Получаем текущую базу
+        $InfoBase = $InfoBases
+
+        # Проверяем, включены ли регламентные задания
+        if ($InfoBase.ScheduledJobsDenied) {
+            send_msg -msg "⚠ Регламентные задания для базы '$base_name' уже выключены."
+            return
+        }
+
+        # Выключаем регламентные задания
+        $InfoBase.ScheduledJobsDenied = $True
+        $InfoBase.DeniedFrom = Get-Date # Начало блокировки (текущая дата и время)
+        # Сохраняем изменения
+        $WorkingProcessSession.UpdateInfoBase($InfoBase)
+        Start-Sleep -Seconds $work_stoppage
+        $job_disable = 1;
+    } catch {
+        $errorMessage = $_.Exception.Message
+        send_msg -msg "❌ Ошибка при выключении регламентных заданий: $errorMessage"
+        throw
+    }
+}
+
+# 
+# Функция включает регламентные задания для информационной базы
+#
+# @return - void
+function enable_scheduled_jobs {
+    # Создаем COM-объект подключения к 1С
+    $connector = New-Object -ComObject "V83.COMConnector"
+    
+    try {
+        # Подключаемся к агенту сервера 1С
+        $AgentConnection = $connector.ConnectAgent($server_name)
+        
+        # Получаем первый кластер (если их несколько, нужно адаптировать код)
+        $Cluster = $AgentConnection.GetClusters()[0]
+        
+        # Авторизация (пустые логин и пароль, если нет авторизации)
+        $AgentConnection.Authenticate($Cluster, "", "")
+        
+        # Получаем рабочий процесс
+        $WorkingProcess = $AgentConnection.GetWorkingProcesses($Cluster)[0]
+        $ConnectionString = "{0}:{1}" -f $WorkingProcess.HostName, $WorkingProcess.MainPort
+
+        # Подключаемся к рабочему процессу
+        $WorkingProcessSession = $connector.ConnectWorkingProcess($ConnectionString)
+        $WorkingProcessSession.AddAuthentication($username, $password) # Пустые логин и пароль, если нет авторизации
+
+        # Получаем список информационных баз
+        $InfoBases = $WorkingProcessSession.GetInfoBases() | Where-Object { $_.Name -eq $base_name }
+
+        if ($InfoBases.Count -eq 0) {
+            send_msg -msg "❌ База данных '$base_name' не найдена."
+            return
+        }
+
+        # Получаем текущую базу
+        $InfoBase = $InfoBases
+
+        # Проверяем, включены ли регламентные задания
+        if (-not $InfoBase.ScheduledJobsDenied) {
+            send_msg -msg "⚠ Регламентные задания для базы '$base_name' уже включены."
+            return
+        }
+
+        # Выключаем регламентные задания
+        $InfoBase.ScheduledJobsDenied = $False
+
+        # Получаем текущую базу
+        $InfoBase = $InfoBases
+
+        # Включаем регламентные задания
+        $InfoBase.ScheduledJobsDenied = $False
+        $InfoBase.DeniedFrom = [DateTime]::new(100, 1, 1, 0, 0, 0) # Обнуляем начало блокировки
+        $InfoBase.DeniedTo = [DateTime]::new(100, 1, 1, 0, 0, 0)   # Обнуляем конец блокировки
+        # Сохраняем изменения
+        $WorkingProcessSession.UpdateInfoBase($InfoBase)
+    } catch {
+        $errorMessage = $_.Exception.Message
+        send_msg -msg "❌ Ошибка при включении регламентных заданий: $errorMessage"
+        throw
+    }
+}
 
 # 
 # функция для закрытия всех сессий
@@ -55,7 +176,7 @@ function terminate_all_sessions {
         $Cluster = $AgentConnection.GetClusters()[0]
         
         # Авторизация (пустые логин и пароль, если нет авторизации)
-        $AgentConnection.Authenticate($Cluster, $username, $password)
+        $AgentConnection.Authenticate($Cluster, "", "")
         
         # Получаем список всех сессий для каждой базы
         $sessions = $AgentConnection.GetSessions($Cluster) | Where-Object {
@@ -68,6 +189,7 @@ function terminate_all_sessions {
             # Завершаем сессию
             $AgentConnection.TerminateSession($Cluster, $session)
         }
+
     } catch {
         $errorMessage = $_.Exception.Message
         send_msg -msg "❌ Ошибка при завершении сессий: $errorMessage"
@@ -118,7 +240,11 @@ function report {
     
     # преобразуем время в секунды
     $time_seconds = [math]::Round($time_spent.TotalSeconds, 2)
-    
+    $time_seconds = $time_seconds
+    if ($job_disable) {
+        $time_seconds = $time_seconds-$work_stoppage
+    }
+    $job_disable = 0
     # получаем дату
     $date = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     
@@ -233,9 +359,12 @@ foreach ($base in $bases) {
             $password = $config['password']
         }
         $base_name = $base
+        disable_scheduled_jobs
         unloading_the_information_base
+        enable_scheduled_jobs
     } else {
         send_msg -msg "❌ Настроек для ИБ $base не существует"
         continue
     }
 }
+
